@@ -1,0 +1,24 @@
+# Installation:
+# -------------
+# yum install python-pip
+# python3 -m pip install docker
+#
+# In docker-compose.yaml use:
+# ---------------------------
+# container_name: my_container_name
+---
+- name: "Check docker container '{{ item }}'"
+  docker_container_info:
+    name: "{{ item }}"
+  register: result
+
+- name: "Does container '{{ item }}' exist?"
+  debug:
+    msg: "The container '{{ item }}' {{ 'exists' if result.exists else 'does not exist' }}"
+  failed_when: not result.exists
+
+- name: "Status of the container '{{ item }}'"
+  debug:
+    msg: "Status of '{{ item }}' is '{{ result.container['State']['Status'] }}'"
+  when: result.exists
+  failed_when: result.container['State']['Status'] != 'running'

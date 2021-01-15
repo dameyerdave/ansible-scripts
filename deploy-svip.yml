@@ -1,0 +1,47 @@
+---
+- hosts: "{{ myhosts | default('local') }}"
+  tasks:
+    - name: Pull latest version from git
+      git:
+        repo: git@github.com:SVIPdb/coordinator.git
+        dest: "{{ svip_path }}"
+        # do not handle submodules
+        recursive: false
+        version: "{{ branch | default('HEAD') }}"
+        clone: no
+        update: yes
+      register: git_result
+
+    # - block:
+    #     - name: Stop play if codebase did not change
+    #       debug:
+    #         msg: Nothing updated, ending here
+
+    #     - meta: end_play
+    #   when: git_result.before == git_result.after
+
+    - name: Get latest commit message
+      shell: git log --pretty="%h - %cd - %s" -n 1
+      args:
+        chdir: "{{ svip_path }}"
+      register: output
+
+    - debug:
+        msg: "{{ output.stdout_lines }}"
+      when: output is defined and output.stdout_lines is defined
+
+    - name: Check if .env exists
+      stat:
+        path: "{{ svip_path }}/.env"
+      register: dot_env
+      failed_when: not dot_env.stat.exists
+
+    - name: Compose new version
+      shell: "docker-compose -f docker-compose.yml -f compose_configs/prod.yml -f compose_configs/sites/{{ site_compose | default(ansible_facts['hostname']) }}.yml up --build -d"
+      args:
+        chdir: "{{ svip_path }}"
+      when: force_compose or (git_result.before != git_result.after)
+
+    - name: Check docker containers
+      include_tasks: docker-check.yml
+      loop: "{{ docker_containers }}"
