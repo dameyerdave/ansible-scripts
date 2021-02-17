@@ -1,0 +1,6 @@
+---
+- name: Check if '{{ item }}'/.env exists
+  stat:
+    path: "{{ dest }}/{{ item }}/.env"
+  register: dot_env
+  failed_when: not dot_env.stat.exists

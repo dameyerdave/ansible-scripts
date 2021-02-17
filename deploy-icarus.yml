@@ -3,22 +3,14 @@
   tasks:
     - name: Pull latest version from git
       git:
-        repo: git@github.com:SVIPdb/coordinator.git
+        repo: "{{ repo }}"
         dest: "{{ dest }}"
         # do not handle submodules
         recursive: false
         version: "{{ branch | default('HEAD') }}"
-        clone: no
+        clone: yes
         update: yes
       register: git_result
-
-    # - block:
-    #     - name: Stop play if codebase did not change
-    #       debug:
-    #         msg: Nothing updated, ending here
-
-    #     - meta: end_play
-    #   when: git_result.before == git_result.after
 
     - name: Get latest commit message
       shell: git log --pretty="%h - %cd - %s" -n 1
@@ -32,13 +24,13 @@
 
     - name: Check dot envs
       include_tasks: dotenv-check.yml
-      loop: 
-        - .
-    
-    # TODO: create a database dump
+      loop:
+        - icarus_db
+        - icarus_be
+        - icarus_ui
 
     - name: Compose new version
-      shell: "docker-compose -f docker-compose.yml -f compose_configs/prod.yml -f compose_configs/sites/{{ site_compose | default(ansible_facts['hostname']) }}.yml up --build -d"
+      shell: "docker-compose -f docker-compose.yml -f docker-compose.override.yml up --build -d"
       args:
         chdir: "{{ dest }}"
       when: force_compose or (git_result.before != git_result.after)
